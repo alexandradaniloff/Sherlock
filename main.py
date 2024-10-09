@@ -9,11 +9,9 @@ import time
 import hashlib
 import random
 from config import *
+from loading import *
 import csv
-
-
-
-
+import os
 
 
 class MainWindow:
@@ -27,7 +25,6 @@ class MainWindow:
         f = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=30)
         f.propagate(0)
         f.pack()
-
 
         self.mainTitle = Label(f, text="ШЕРЛОК", fg="orange1" ,bg="grey15", font=("Lusida Console", 30,)).place(relx=.5, y=100, anchor="center")
         self.down = Button(f, text="Загрузить данные", width=15, height=2, fg="grey91", bg="grey37",
@@ -52,8 +49,9 @@ class MainWindow:
                                   font=("Helvetica", 12, "normal roman"), command=self.c_out)
         self.out.place(relx=.5, y=510, anchor="center")
 
-
     def с_down(self):
+        # загружаем данные
+        #loading_auto()
         conn = sqlite3.connect("AUTODATA.db")
         # создаём курсор для виртуального управления базой данных
         cur = conn.cursor()
@@ -88,10 +86,12 @@ class MainWindow:
         self.newWindow.resizable(0, 0)
         #self.app = Register(self.newWindow)
         self.app = InfoWindow(self.newWindow)
-        self.newWindow.after(1000, self.newWindow.destroy)
+        self.newWindow.after(2000, self.newWindow.destroy)
         self.down['state'] = 'disabled'
         self.scheme['state'] = 'normal'
         self.orient['state'] = 'normal'
+        # удаляем файл после переноса данных
+        #os.remove(path_del)
 
     def с_scheme(self):
         self.newWindow = Toplevel(self.master)
@@ -99,18 +99,13 @@ class MainWindow:
         #self.app = Register(self.newWindow)
         self.app = Scheme(self.newWindow)
 
-
-
     def c_orient(self):
-        self.newWindow1 = Toplevel(self.master)
-        self.newWindow1.resizable(0, 0)
-        self.app = Orient(self.newWindow1)
-
+        self.newWindow = Toplevel(self.master)
+        self.newWindow.resizable(0, 0)
+        self.app = Orient(self.newWindow)
 
     def c_out(self):
         root.destroy()
-
-
 
 class InfoWindow:
     def __init__(self, master):
@@ -118,12 +113,9 @@ class InfoWindow:
         self.master.geometry("500x150+0+0")
         #self.master.title("Online Quiz")
         self.master.config(bg="grey80")
-
         f1 = Frame(self.master, height=1080, width=1920, bg="grey80", relief="ridge", bd=10)
         f1.propagate(0)
         f1.pack()
-
-
         self.mainTitle = Label(f1, text="Данные успешно загружены", fg="grey15" ,bg="grey80", font=("Helvetica", 20, "normal roman")).place(
             x=50, y=45)
 
@@ -141,7 +133,6 @@ class InfoWindow1:
             x=110, y=45)
 
 class Scheme:
-
     def __init__(self, master):
         #global mReg
         #mReg = master
@@ -153,7 +144,6 @@ class Scheme:
         f2 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
         f2.propagate(0)
         f2.pack()
-
 
         self.mainTitle = Label(f2, text="Схемы незаконного перемещения товаров", bg="grey15", fg="grey79",
                                font=("Helvetica", 15, "normal roman")).place(relx=.5, y=20, anchor="center")
@@ -212,9 +202,11 @@ class Scheme:
         # self.app = Register(self.newWindow)
         self.app = Scheme1(self.newWindow)
 
-        pass
     def c_scheme2(self):
-        pass
+        self.newWindow = Toplevel(self.master)
+        self.newWindow.resizable(0, 0)
+        # self.app = Register(self.newWindow)
+        self.app = Scheme2(self.newWindow)
     def c_scheme3(self):
         pass
     def c_scheme4(self):
@@ -226,9 +218,7 @@ class Scheme:
     def c_cancel(self):
         self.master.destroy()
 
-
 class Orient:
-
     def __init__(self, master):
         #global mReg
         #mReg = master
@@ -241,7 +231,6 @@ class Orient:
         f3.propagate(0)
         f3.pack()
 
-
         self.mainTitle = Label(f3, text="Внести ориентировку", fg="grey79", bg="grey15", font=("Helvetica", 15, "normal roman")).place(relx=.5, y=30, anchor="center")
         self.number1 = Label(f3, text="Номер АТС", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
         self.number2 = Label(f3, text="(латинские буквы) : ", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
@@ -253,14 +242,12 @@ class Orient:
         self.e_number = Entry(f3, width=10,  font=("Helvetica", 12, "normal roman"))
         self.e_info = Entry(f3, width=100, font=("Helvetica", 12, "normal roman"))
 
-
         self.submit = Button(f3, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_save)
         self.view = Button(f3, text="Просмотреть", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_view)
         self.cancel = Button(f3, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_cancel)
-
 
         self.number1.place(x=50, y=150)
         self.number2.place(x=50, y=170)
@@ -274,78 +261,68 @@ class Orient:
         self.view.place(x=250, y=400)
         self.cancel.place(x=450, y=400)
 
-
     def c_save(self):
-        self.conn = sqlite3.connect("AUTODATA.db")
-        # создаём курсор для виртуального управления базой данных
-        self.cur = self.conn.cursor()
-        # если нужной нам таблицы в базе нет — создаём её
-        self.cur.execute(
-            "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
+        #условие на заполненность поля ввода номера
+        if len(self.e_number.get())>0:
+            self.conn = sqlite3.connect("AUTODATA.db")
+            # создаём курсор для виртуального управления базой данных
+            self.cur = self.conn.cursor()
+            # если нужной нам таблицы в базе нет — создаём её
+            self.cur.execute(
+                "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
 
+            # получаем данные из полей ввода
+            # вставляем их в таблицу
+            self.cur.execute("INSERT INTO ORIENT VALUES (NULL,NULL,?,NULL,?)", (self.e_number.get(), self.e_info.get(),))
+            self.conn.commit()
 
-        # получаем данные из полей ввода
-        num_auto = self.e_number.get()
-        info = self.e_info.get()
+            self.cur.execute("UPDATE ORIENT SET row_num = (SELECT COUNT(*) FROM ORIENT AS ORIENT2 WHERE ORIENT2.rowid <= ORIENT.rowid)")
+            self.conn.commit()
 
-        # вставляем их в таблицу
-        self.cur.execute("INSERT INTO ORIENT VALUES (NULL,NULL,?,NULL,?)", ( num_auto, info,))
-        self.conn.commit()
+            self.cur.execute("UPDATE ORIENT SET data = strftime('%Y-%m-%d %H:%M:%S')  WHERE row_num  = (SELECT MAX(o1.row_num) FROM ORIENT o1) ")
+            self.conn.commit()
 
-        self.cur.execute("UPDATE ORIENT SET row_num = (SELECT COUNT(*) FROM ORIENT AS ORIENT2 WHERE ORIENT2.rowid <= ORIENT.rowid)")
-        self.conn.commit()
-
-        self.cur.execute("UPDATE ORIENT SET data = strftime('%Y-%m-%d %H:%M:%S')  WHERE row_num  = (SELECT MAX(o1.row_num) FROM ORIENT o1) ")
-        self.conn.commit()
-
-        self.conn.close()
-        # очищаем поля ввода
-        self.e_number.delete(0, 'end')
-        self.e_info.delete(0, 'end')
-
+            self.conn.close()
+            # очищаем поля ввода
+            self.e_number.delete(0, 'end')
+            self.e_info.delete(0, 'end')
 
     def c_view(self):
-
-
-        self.newWindow = Toplevel(self.master)
-        self.newWindow.resizable(0, 0)
-        self.app = Table(self.newWindow)
-
+        self.newWindow_Table = Toplevel(self.master)
+        self.newWindow_Table.resizable(0, 0)
+        self.app = Table(self.newWindow_Table)
 
     def c_cancel(self):
         self.master.destroy()
 
 class Orient_Update:
-    def __init__(self, master,rows):
+    def __init__(self, master, rows):
 
         self.master = master
         self.rows = rows
         self.master.geometry("1350x750+0+0")
         self.master.config(bg="azure")
-        f31 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
-        f31.propagate(0)
-        f31.pack()
+        self.f31 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
+        self.f31.propagate(0)
+        self.f31.pack()
 
-        self.mainTitle = Label(f31, text="Внести ориентировку", fg="grey79", bg="grey15",
+        self.mainTitle = Label(self.f31, text="Внести ориентировку", fg="grey79", bg="grey15",
                                font=("Helvetica", 15, "normal roman")).place(relx=.5, y=30, anchor="center")
-        self.number1 = Label(f31, text="Номер АТС", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.number2 = Label(f31, text="(латинские буквы) : ", fg="grey79", bg="grey15",
+        self.number1 = Label(self.f31, text="Номер АТС", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
+        self.number2 = Label(self.f31, text="(латинские буквы) : ", fg="grey79", bg="grey15",
                              font=("Helvetica", 12, "normal roman"))
-        self.info1 = Label(f31, text="Дополнительная", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.info2 = Label(f31, text="информация : ", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
+        self.info1 = Label(self.f31, text="Дополнительная", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
+        self.info2 = Label(self.f31, text="информация : ", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
 
-
-
-        self.e_number = Entry(f31, width=10, font=("Helvetica", 12, "normal roman"))
+        self.e_number = Entry(self.f31, width=10, font=("Helvetica", 12, "normal roman"))
         self.e_number.insert(0, self.rows[1])
 
-        self.e_info = Entry(f31, width=100, font=("Helvetica", 12, "normal roman"))
+        self.e_info = Entry(self.f31, width=100, font=("Helvetica", 12, "normal roman"))
         self.e_info.insert(0, self.rows[2])
 
-
-        self.submit = Button(f31, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
+        self.submit = Button(self.f31, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_save)
-        self.cancel = Button(f31, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
+        self.cancel = Button(self.f31, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_cancel)
 
         self.number1.place(x=50, y=150)
@@ -355,12 +332,8 @@ class Orient_Update:
         self.info1.place(x=50, y=240)
         self.info2.place(x=50, y=260)
         self.e_info.place(x=230, y=260)
-
         self.submit.place(x=50, y=400)
         self.cancel.place(x=450, y=400)
-
-
-
 
     def c_save(self):
         self.conn = sqlite3.connect("AUTODATA.db")
@@ -372,44 +345,30 @@ class Orient_Update:
         info = self.e_info.get()
         row_num = (self.rows[0])
 
-
-
-
         # вставляем их в таблицу
-        #quere = f""" UPDATE ORIENT SET num_auto = REPLACE(num_auto , 'Java' , {num_auto}) WHERE row_num={self.rows[0]}"""
+
         self.cur.execute("UPDATE ORIENT SET num_auto=?, info=? WHERE row_num =?",(num_auto, info , row_num, ))
         self.conn.commit()
-
 
         self.cur.execute(
             "UPDATE ORIENT SET row_num = (SELECT COUNT(*) FROM ORIENT AS ORIENT2 WHERE ORIENT2.rowid <= ORIENT.rowid)")
         self.conn.commit()
 
-
         self.cur.execute(
             "UPDATE ORIENT SET data = strftime('%Y-%m-%d %H:%M:%S')  WHERE row_num  = (SELECT MAX(o1.row_num) FROM ORIENT o1) ")
         self.conn.commit()
-
 
         self.conn.close()
         # очищаем поля ввода
         self.e_number.delete(0, 'end')
         self.e_info.delete(0, 'end')
 
-        self.master.destroy()
-
-
-
-    def c_view(self):
         self.newWindow = Toplevel(self.master)
         self.newWindow.resizable(0, 0)
         self.app = Table(self.newWindow)
-        self.master.destroy()
 
     def c_cancel(self):
         self.master.destroy()
-
-
 
 class Table:
     def __init__(self, master):
@@ -427,6 +386,7 @@ class Table:
 
         # создание элементов для ввода слов и значений
         self.tree = ttk.Treeview(f4, show="headings", height=20, columns=('#1', '#2', '#3', '#4'))
+        self.tree.delete(*self.tree.get_children())
 
         # self.tree.grid(row=4, column=0, columnspan=2)
         self.tree.heading('#1', text='№', anchor='w')
@@ -440,6 +400,7 @@ class Table:
         self.tree.column("#3", stretch=NO, width=200)
         self.tree.column("#4", stretch=NO, width=650)
 
+        self.tree.delete(*self.tree.get_children())
 
         style = ttk.Style()
         # для работы fieldbackground добавим
@@ -488,7 +449,7 @@ class Table:
 
         self.conn = sqlite3.connect("AUTODATA.db")
         self.cur = self.conn.cursor()
-        self.tree.delete(*self.tree.get_children())
+
         self.cur.execute("select row_num , num_auto, data ,info from ORIENT ")
         rows = self.cur.fetchall()
         for row in rows:
@@ -550,8 +511,6 @@ class Table:
                 self.cur.close()
                 self.conn.close()
 
-
-
     def c_cancel(self):
         self.master.destroy()
 
@@ -595,7 +554,7 @@ class Scheme1:
     def __init__(self, master):
 
         self.master = master
-        self.master.geometry("1350x750+0+0")
+        self.master.geometry("1535x790+0+0")
         self.master.config(bg="grey15")
         f6 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
         f6.propagate(0)
@@ -604,27 +563,28 @@ class Scheme1:
         self.mainTitle = Label(f6, text="Схема 1", bg="grey15", fg="grey79", font=("Helvetica", 16, "normal roman")).place(relx=.5, y=20, anchor="center")
 
         # создание элементов для ввода слов и значений
-        self.tree = ttk.Treeview(f6, show="headings", height=20, columns=('#1', '#2', '#3', '#4', '#5', '#6'))
-
+        self.tree = ttk.Treeview(f6, show="headings", height=20, columns=('#1', '#2', '#3', '#4', '#5', '#6', '#7'))
         self.tree.heading('#1', text='№', anchor='w')
         self.tree.heading('#2', text='Номер АТС', anchor='w')
         self.tree.heading('#3', text='Дата и время', anchor='w')
         self.tree.heading('#4', text='Камера', anchor='w')
         self.tree.heading('#5', text='Марка', anchor='w')
         self.tree.heading('#6', text='Модель', anchor='w')
-        self.tree.place(x=360, y=72)
+        self.tree.heading('#7', text='Ориентировка', anchor='w')
+        self.tree.place(x=300, y=72)
 
-        self.tree.column("#1", stretch=NO, width=80)
+        self.tree.column("#1", stretch=NO, width=70)
         self.tree.column("#2", stretch=NO, width=120)
         self.tree.column("#3", stretch=NO, width=190)
         self.tree.column("#4", stretch=NO, width=220)
         self.tree.column("#5", stretch=NO, width=130)
         self.tree.column("#6", stretch=NO, width=120)
+        self.tree.column("#7", stretch=NO, width=300)
 
         treeYScroll = ttk.Scrollbar(f6, orient=VERTICAL)
         treeYScroll.configure(command=self.tree.yview)
         self.tree.configure(yscrollcommand=treeYScroll.set)
-        treeYScroll.place(x=1224, y=72, height=533)
+        treeYScroll.place(x=1454, y=72, height=533)
         # treeYScroll.pack(side=RIGHT, fill=Y)
 
         style = ttk.Style()
@@ -634,21 +594,21 @@ class Scheme1:
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"), background="grey15", foreground="grey79", relief="flat", borderwidth=1)
         style.configure('black.TSeparator', background="grey79")
 
-
-
         # рисуем таблицу
         ttk.Separator(master=self.tree, orient=HORIZONTAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
         ).place(x=0, y=25, relwidth=1)
         ttk.Separator(master=self.tree, orient=VERTICAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
-        ).place(x=80, y=0, relheight=1)
+        ).place(x=70, y=0, relheight=1)
         ttk.Separator(master=self.tree, orient=VERTICAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
-        ).place(x=200, y=0, relheight=1)
+        ).place(x=190, y=0, relheight=1)
         ttk.Separator(master=self.tree, orient=VERTICAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
-        ).place(x=390, y=0, relheight=1)
+        ).place(x=380, y=0, relheight=1)
         ttk.Separator(master=self.tree, orient=VERTICAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
-        ).place(x=610, y=0, relheight=1)
+        ).place(x=600, y=0, relheight=1)
         ttk.Separator(master=self.tree, orient=VERTICAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
-        ).place(x=740, y=0, relheight=1)
+        ).place(x=730, y=0, relheight=1)
+        ttk.Separator(master=self.tree, orient=VERTICAL, style='black.TSeparator', class_=ttk.Separator, takefocus=0, cursor='plus'
+        ).place(x=850, y=0, relheight=1)
 
         self.checkbut1 = Label(f6, text="Исключить легковые транспортные ", bg="grey15", fg="grey79",
                                font=("Helvetica", 12, "normal roman")).place(x=30, y=70)
@@ -661,7 +621,6 @@ class Scheme1:
         self.checkbut5 = Label(f6, text="с номерами РБ: ", bg="grey15", fg="grey79",
                                font=("Helvetica", 12, "normal roman")).place(x=30, y=220)
 
-
         # подключаем флажки
         self.enabled1 = IntVar()
         self.enabled2 = IntVar()
@@ -670,10 +629,9 @@ class Scheme1:
         self.cancel = Button(f6, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_cancel)
 
-
         self.enabled_checkbutton1.place(x=180, y=95)
         self.enabled_checkbutton2.place(x=180, y=220)
-        self.cancel.place(x=1095, y=620)
+        self.cancel.place(x=1325, y=620)
 
         self.enabled_checkbutton1.select()
         self.enabled_checkbutton2.deselect()
@@ -687,7 +645,7 @@ class Scheme1:
     def close(self):
         rows = self.cur.fetchall()
         for row in rows:
-            self.tree.insert(parent='', index='end', values=( row[0],row[1], row[2], row[3], row[4], row[5]))
+            self.tree.insert(parent='', index='end', values=(row[0], row[1], row[2], row[3], row[4], row[5], row[6]))
         self.conn.commit()
         self.cur.close()
         self.conn.close()
@@ -713,8 +671,6 @@ class Scheme1:
     def c_cancel(self):
         self.master.destroy()
 
-
-
 class Scheme2:
     def __init__(self, master):
         self.master = master
@@ -733,7 +689,7 @@ class Scheme2:
 
         self.conn.close()
         # self.master.update()
-        print('обновлено')
+
 
 
 class Login:

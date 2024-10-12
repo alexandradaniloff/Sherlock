@@ -5,7 +5,12 @@ from tkinter.ttk import Treeview, Scrollbar
 from tkinter import messagebox
 import tkinter as tk
 import sqlite3
+import datetime
+from datetime import datetime, timedelta
+import logging
 import time
+from selenium import webdriver
+
 import hashlib
 import random
 from config import *
@@ -73,8 +78,11 @@ class MainWindow:
         #создаем таблицы исключения легковых тс
         cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
         cur.executemany("INSERT INTO CAR_MAKE VALUES(?);", car_make)
+
         cur.execute("CREATE TABLE IF NOT EXISTS CAR_MODEL (make_car TEXT, model_car TEXT)")
         cur.executemany("INSERT INTO CAR_MODEL VALUES(?,?);", car_model)
+
+        cur.execute("CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
 
 
         conn.commit()
@@ -267,10 +275,6 @@ class Orient:
             self.conn = sqlite3.connect("AUTODATA.db")
             # создаём курсор для виртуального управления базой данных
             self.cur = self.conn.cursor()
-            # если нужной нам таблицы в базе нет — создаём её
-            self.cur.execute(
-                "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
-
             # получаем данные из полей ввода
             # вставляем их в таблицу
             self.cur.execute("INSERT INTO ORIENT VALUES (NULL,NULL,?,NULL,?)", (self.e_number.get(), self.e_info.get(),))

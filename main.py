@@ -16,12 +16,19 @@ import random
 from config import *
 from loading import *
 import csv
+import logging
 import os
 
+logging.basicConfig(
+    level=logging.DEBUG, filename = "mylog.txt",
+    format = '%(asctime)s - %(levelname)s - %(module)s -  %(funcName)s: %(lineno)d - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    )
 
 class MainWindow:
 
     def __init__(self, master):
+
         self.master = master
         self.master.geometry("1350x750+0+0")
         # self.master.title("Online Quiz")
@@ -45,7 +52,7 @@ class MainWindow:
 
 
         self.orient = Button(f, text="Ориентировки", width=15, height=2, fg="grey91", bg="grey37",
-                           font=("Helvetica", 12, "normal roman"), command=self.c_orient)
+                           font=("Helvetica", 12, "normal roman"), command=self.table)
         self.orient.place(relx=.5, y=410, anchor="center")
         self.orient['state'] = 'disabled'
 
@@ -54,10 +61,15 @@ class MainWindow:
                                   font=("Helvetica", 12, "normal roman"), command=self.c_out)
         self.out.place(relx=.5, y=510, anchor="center")
 
+
     def с_down(self):
+
+
         # загружаем данные
         #loading_auto()
+        logging.debug('данные загружены')
         conn = sqlite3.connect("AUTODATA.db")
+        logging.debug('соединение с бд')
         # создаём курсор для виртуального управления базой данных
         cur = conn.cursor()
         # удаляем таблицу со старыми данными
@@ -65,7 +77,9 @@ class MainWindow:
         # создаем новую
         cur.execute(
             "CREATE TABLE AUTO (id INTEGER PRIMARY KEY, num_auto TEXT, data TEXT, camera TEXT, make_car TEXT, model_car TEXT)")
+        logging.debug('создана таблица AUTO')
         #разбиваем список адресов на отдельные адреса
+
         for p in path:
             # открываем файл по каждому адресу
             file = open(p, 'r')
@@ -74,8 +88,8 @@ class MainWindow:
             # заполняем таблицу по индексам
             for data in data_list:
                 cur.execute("INSERT INTO AUTO VALUES (NULL,?,?,?,?,?)", (data[1], data[6], data[14], data[17], data[18],))
-
-        #создаем таблицы исключения легковых тс
+        logging.debug('вставлены данные с открытого файла')
+        #создаем таблицу исключения легковых тс
         cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
         cur.executemany("INSERT INTO CAR_MAKE VALUES(?);", car_make)
 
@@ -83,6 +97,7 @@ class MainWindow:
         cur.executemany("INSERT INTO CAR_MODEL VALUES(?,?);", car_model)
 
         cur.execute("CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
+        logging.debug('созданы остальные таблицы')
 
 
         conn.commit()
@@ -107,10 +122,10 @@ class MainWindow:
         #self.app = Register(self.newWindow)
         self.app = Scheme(self.newWindow)
 
-    def c_orient(self):
+    def table(self):
         self.newWindow = Toplevel(self.master)
         self.newWindow.resizable(0, 0)
-        self.app = Orient(self.newWindow)
+        self.app = Table(self.newWindow)
 
     def c_out(self):
         root.destroy()
@@ -226,154 +241,6 @@ class Scheme:
     def c_cancel(self):
         self.master.destroy()
 
-class Orient:
-    def __init__(self, master):
-        #global mReg
-        #mReg = master
-        self.master = master
-        self.master.geometry("1350x750+0+0")
-        #self.master.title("Online Quiz - Registration")
-        self.master.config(bg="azure")
-        #global f1
-        f3 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
-        f3.propagate(0)
-        f3.pack()
-
-        self.mainTitle = Label(f3, text="Внести ориентировку", fg="grey79", bg="grey15", font=("Helvetica", 15, "normal roman")).place(relx=.5, y=30, anchor="center")
-        self.number1 = Label(f3, text="Номер АТС", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.number2 = Label(f3, text="(латинские буквы) : ", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.info1 = Label(f3, text="Дополнительная", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.info2 = Label(f3, text="информация : ", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-
-
-
-        self.e_number = Entry(f3, width=10,  font=("Helvetica", 12, "normal roman"))
-        self.e_info = Entry(f3, width=100, font=("Helvetica", 12, "normal roman"))
-
-        self.submit = Button(f3, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
-                             font=("Helvetica", 12, "normal roman"), command=self.c_save)
-        self.view = Button(f3, text="Просмотреть", width=15, height=2, fg="grey91", bg="grey37",
-                             font=("Helvetica", 12, "normal roman"), command=self.c_view)
-        self.cancel = Button(f3, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
-                             font=("Helvetica", 12, "normal roman"), command=self.c_cancel)
-
-        self.number1.place(x=50, y=150)
-        self.number2.place(x=50, y=170)
-        self.e_number.place(x=230, y=170)
-
-        self.info1.place(x=50, y=240)
-        self.info2.place(x=50, y=260)
-        self.e_info.place(x=230, y=260)
-
-        self.submit.place(x=50, y=400)
-        self.view.place(x=250, y=400)
-        self.cancel.place(x=450, y=400)
-
-    def c_save(self):
-        #условие на заполненность поля ввода номера
-        if len(self.e_number.get())>0:
-            self.conn = sqlite3.connect("AUTODATA.db")
-            # создаём курсор для виртуального управления базой данных
-            self.cur = self.conn.cursor()
-            # получаем данные из полей ввода
-            # вставляем их в таблицу
-            self.cur.execute("INSERT INTO ORIENT VALUES (NULL,NULL,?,NULL,?)", (self.e_number.get(), self.e_info.get(),))
-            self.conn.commit()
-
-            self.cur.execute("UPDATE ORIENT SET row_num = (SELECT COUNT(*) FROM ORIENT AS ORIENT2 WHERE ORIENT2.rowid <= ORIENT.rowid)")
-            self.conn.commit()
-
-            self.cur.execute("UPDATE ORIENT SET data = strftime('%Y-%m-%d %H:%M:%S')  WHERE row_num  = (SELECT MAX(o1.row_num) FROM ORIENT o1) ")
-            self.conn.commit()
-
-            self.conn.close()
-            # очищаем поля ввода
-            self.e_number.delete(0, 'end')
-            self.e_info.delete(0, 'end')
-
-    def c_view(self):
-        self.newWindow_Table = Toplevel(self.master)
-        self.newWindow_Table.resizable(0, 0)
-        self.app = Table(self.newWindow_Table)
-
-    def c_cancel(self):
-        self.master.destroy()
-
-class Orient_Update:
-    def __init__(self, master, rows):
-
-        self.master = master
-        self.rows = rows
-        self.master.geometry("1350x750+0+0")
-        self.master.config(bg="azure")
-        self.f31 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
-        self.f31.propagate(0)
-        self.f31.pack()
-
-        self.mainTitle = Label(self.f31, text="Внести ориентировку", fg="grey79", bg="grey15",
-                               font=("Helvetica", 15, "normal roman")).place(relx=.5, y=30, anchor="center")
-        self.number1 = Label(self.f31, text="Номер АТС", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.number2 = Label(self.f31, text="(латинские буквы) : ", fg="grey79", bg="grey15",
-                             font=("Helvetica", 12, "normal roman"))
-        self.info1 = Label(self.f31, text="Дополнительная", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-        self.info2 = Label(self.f31, text="информация : ", fg="grey79", bg="grey15", font=("Helvetica", 12, "normal roman"))
-
-        self.e_number = Entry(self.f31, width=10, font=("Helvetica", 12, "normal roman"))
-        self.e_number.insert(0, self.rows[1])
-
-        self.e_info = Entry(self.f31, width=100, font=("Helvetica", 12, "normal roman"))
-        self.e_info.insert(0, self.rows[2])
-
-        self.submit = Button(self.f31, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
-                             font=("Helvetica", 12, "normal roman"), command=self.c_save)
-        self.cancel = Button(self.f31, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
-                             font=("Helvetica", 12, "normal roman"), command=self.c_cancel)
-
-        self.number1.place(x=50, y=150)
-        self.number2.place(x=50, y=170)
-        self.e_number.place(x=230, y=170)
-
-        self.info1.place(x=50, y=240)
-        self.info2.place(x=50, y=260)
-        self.e_info.place(x=230, y=260)
-        self.submit.place(x=50, y=400)
-        self.cancel.place(x=450, y=400)
-
-    def c_save(self):
-        self.conn = sqlite3.connect("AUTODATA.db")
-        # создаём курсор для виртуального управления базой данных
-        self.cur = self.conn.cursor()
-
-        # получаем данные из полей ввода
-        num_auto = self.e_number.get()
-        info = self.e_info.get()
-        row_num = (self.rows[0])
-
-        # вставляем их в таблицу
-
-        self.cur.execute("UPDATE ORIENT SET num_auto=?, info=? WHERE row_num =?",(num_auto, info , row_num, ))
-        self.conn.commit()
-
-        self.cur.execute(
-            "UPDATE ORIENT SET row_num = (SELECT COUNT(*) FROM ORIENT AS ORIENT2 WHERE ORIENT2.rowid <= ORIENT.rowid)")
-        self.conn.commit()
-
-        self.cur.execute(
-            "UPDATE ORIENT SET data = strftime('%Y-%m-%d %H:%M:%S')  WHERE row_num  = (SELECT MAX(o1.row_num) FROM ORIENT o1) ")
-        self.conn.commit()
-
-        self.conn.close()
-        # очищаем поля ввода
-        self.e_number.delete(0, 'end')
-        self.e_info.delete(0, 'end')
-
-        self.newWindow = Toplevel(self.master)
-        self.newWindow.resizable(0, 0)
-        self.app = Table(self.newWindow)
-
-    def c_cancel(self):
-        self.master.destroy()
-
 class Table:
     def __init__(self, master):
         self.master = master
@@ -387,9 +254,35 @@ class Table:
 
         self.mainTitle = Label(f4, text="Ориентировки", bg="grey15", fg="grey79",
                                font=("Helvetica", 16, "normal roman")).place(x=550, y=30)
+        # дополнение на 20.10.24
+        self.number1 = Label(f4, text="Номер АТС", fg="grey79", bg="grey15",
+                             font=("Helvetica", 12, "normal roman"))
+        self.number2 = Label(f4, text="(латинские буквы для всех ", fg="grey79", bg="grey15",
+                             font=("Helvetica", 12, "normal roman"))
+        self.number3 = Label(f4, text="номеров, кроме российских): ", fg="grey79", bg="grey15",
+                              font=("Helvetica", 12, "normal roman"))
+        self.info1 = Label(f4, text="Дополнительная", fg="grey79", bg="grey15",
+                           font=("Helvetica", 12, "normal roman"))
+        self.info2 = Label(f4, text="информация: ", fg="grey79", bg="grey15",
+                           font=("Helvetica", 12, "normal roman"))
+        self.e_number = Entry(f4, width=10, font=("Helvetica", 12, "normal roman"))
+        self.e_info = Entry(f4, width=98, font=("Helvetica", 12, "normal roman"))
+
+        self.number1.place(x=50, y=450)
+        self.number2.place(x=50, y=470)
+        self.number3.place(x=50, y=490)
+
+
+        self.info1.place(x=50, y=540)
+        self.info2.place(x=50, y=560)
+
+        self.e_number.place(x=265, y=490)
+        self.e_info.place(x=265, y=560)
+
+
 
         # создание элементов для ввода слов и значений
-        self.tree = ttk.Treeview(f4, show="headings", height=20, columns=('#1', '#2', '#3', '#4'))
+        self.tree = ttk.Treeview(f4, show="headings", height=12, columns=('#1', '#2', '#3', '#4'))
         self.tree.delete(*self.tree.get_children())
 
         # self.tree.grid(row=4, column=0, columnspan=2)
@@ -404,7 +297,7 @@ class Table:
         self.tree.column("#3", stretch=NO, width=200)
         self.tree.column("#4", stretch=NO, width=650)
 
-        self.tree.delete(*self.tree.get_children())
+
 
         style = ttk.Style()
         # для работы fieldbackground добавим
@@ -442,6 +335,10 @@ class Table:
 
         self.cancel = Button(f4, text="Назад", width=15, height=2, fg="grey91", bg="grey37",
                              font=("Helvetica", 12, "normal roman"), command=self.c_cancel)
+
+        self.save = Button(f4, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
+                           font=("Helvetica", 12, "normal roman"), command=self.c_save)
+        self.save.place(x=417, y=620)
         self.update.place(x=617, y=620)
         self.delete.place(x=817, y=620)
         self.cancel.place(x=1017, y=620)
@@ -475,12 +372,19 @@ class Table:
                 quere = f"""SELECT row_num, num_auto, info from ORIENT WHERE row_num={num_selected_item}"""
                 self.cur.execute(quere)
                 self.rows = self.cur.fetchone()
+
+                self.e_number.insert(0, self.rows[1])
+                self.e_info.insert(0, self.rows[2])
+
+               # self.cur.execute("DELETE FROM ORIENT WHERE row_num=?", (num_selected_item,))
+                self.conn.commit()
+
                 self.cur.close()
                 self.conn.close()
 
-                self.newWindow = Toplevel(self.master)
-                self.newWindow.resizable(0, 0)
-                self.app = Orient_Update(self.newWindow, self.rows)
+                #self.newWindow = Toplevel(self.master)
+                #self.newWindow.resizable(0, 0)
+                #self.app = Orient_Update(self.newWindow, self.rows)
 
         #self.master.destroy()
 
@@ -514,6 +418,59 @@ class Table:
                     self.tree.insert(parent='', index='end', values=(row[0], row[1], row[2], row[3]))
                 self.cur.close()
                 self.conn.close()
+
+    def c_save(self):
+
+        # условие на заполненность поля ввода номера
+        if len(self.e_number.get()) > 0:
+            self.conn = sqlite3.connect("AUTODATA.db")
+            self.cur = self.conn.cursor()
+
+            #создаем нумерацию имеющихся строк
+            self.all_items = self.tree.get_children()
+            num_all_items = enumerate(self.all_items, start=1)
+            spisok = list(num_all_items)
+
+            # получаем номер выбранной строки
+
+            selected_item = self.tree.focus()
+
+            for n in spisok:
+                if n[1] == selected_item:
+                    num_selected_item = n[0]
+                    #self.conn = sqlite3.connect("AUTODATA.db")
+                    #self.cur = self.conn.cursor()
+                    # удаляем данные
+                    self.cur.execute("DELETE FROM ORIENT WHERE row_num=?", (num_selected_item,))
+                    self.conn.commit()
+
+
+            # получаем данные из полей ввода
+            # вставляем их в таблицу
+
+            self.cur.execute("INSERT INTO ORIENT VALUES (NULL,NULL,?,NULL,?)",(self.e_number.get(), self.e_info.get(),))
+            self.conn.commit()
+
+            self.cur.execute(
+                "UPDATE ORIENT SET row_num = (SELECT COUNT(*) FROM ORIENT AS ORIENT2 WHERE ORIENT2.rowid <= ORIENT.rowid)")
+            self.conn.commit()
+
+            self.cur.execute(
+                "UPDATE ORIENT SET data = strftime('%Y-%m-%d %H:%M:%S')  WHERE row_num  = (SELECT MAX(o1.row_num) FROM ORIENT o1) ")
+            self.conn.commit()
+
+            self.cur.execute("select row_num , num_auto, data ,info from ORIENT ")
+
+            self.tree.delete(*self.tree.get_children())
+            rows = self.cur.fetchall()
+            for row in rows:
+                self.tree.insert(parent='', index='end', values=(row[0], row[1], row[2], row[3]))
+
+            self.cur.close()
+            self.conn.close()
+            # очищаем поля ввода
+            self.e_number.delete(0, 'end')
+            self.e_info.delete(0, 'end')
 
     def c_cancel(self):
         self.master.destroy()

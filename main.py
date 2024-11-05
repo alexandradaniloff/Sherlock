@@ -3,6 +3,8 @@ from tkinter import *
 from tkinter import ttk
 from tkinter.ttk import Treeview, Scrollbar
 from tkinter import messagebox
+import pathlib
+import datetime
 import tkinter as tk
 import sqlite3
 import datetime
@@ -23,6 +25,8 @@ logging.basicConfig(
     level=logging.DEBUG, filename = "mylog.txt",
     format = '%(asctime)s - %(levelname)s - %(module)s -  %(funcName)s: %(lineno)d - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
+    # раскомментировать, если нужны логи кириллицей в pycharm
+    #encoding = 'utf-8',
     )
 
 class MainWindow:
@@ -31,7 +35,6 @@ class MainWindow:
 
         self.master = master
         self.master.geometry("1350x750+0+0")
-        # self.master.title("Online Quiz")
         self.master.config(bg="grey37")
 
         f = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=30)
@@ -62,64 +65,202 @@ class MainWindow:
         self.out.place(relx=.5, y=510, anchor="center")
 
 
+
     def с_down(self):
+        # Если скачивание было недавно, то данные с сайта не загружаем.
+        # Используем ранее полученную информацию.
+
+        if path_data.exists():
+            print("файл существует")
+            file = open("down_data.txt", 'r')
+            data_list = file.read()
+            file.close()
+            # получаем дату-время последней загрузки в нужном формате
+            date_down = datetime.datetime.strptime(data_list, '%Y-%m-%d %H:%M:%S')
+            # получаем текущую дату-время в нужном формате
+            data_now = datetime.datetime.now()
+            # разница в минутах и округление
+            diff = (data_now - date_down).total_seconds() / delta
+            print(int(diff))
+            if diff >= 1:
+                #loading_auto()
+
+                logging.debug('данные загружены')
+                conn = sqlite3.connect("AUTODATA.db")
+                logging.debug('соединение с бд')
+                # создаём курсор для виртуального управления базой данных
+                cur = conn.cursor()
+                # удаляем таблицу со старыми данными
+                cur.execute("DROP TABLE IF EXISTS AUTO")
+                # создаем новую
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS AUTO (id INTEGER PRIMARY KEY, num_auto TEXT, data TEXT, camera TEXT, make_car TEXT, model_car TEXT)")
+                logging.debug('создана таблица CREATE AUTO')
+                # разбиваем список адресов на отдельные адреса
+
+                for p in path:
+                    # открываем файл по каждому адресу
+                    file = open(p, 'r')
+                    # преобразуем файл в список
+                    data_list = [row for row in csv.reader(file)]
+                    # заполняем таблицу по индексам
+                    for data in data_list:
+                        cur.execute("INSERT INTO AUTO VALUES (NULL,?,?,?,?,?)",
+                                    (data[1], data[6], data[14], data[17], data[18],))
+                    file.close()
+                logging.debug('вставлены данные с открытого файла')
+
+                # создаем таблицу исключения легковых тс
+                cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
+                cur.executemany("INSERT INTO CAR_MAKE VALUES(?);", car_make)
+
+                cur.execute("CREATE TABLE IF NOT EXISTS CAR_MODEL (make_car TEXT, model_car TEXT)")
+                cur.executemany("INSERT INTO CAR_MODEL VALUES(?,?);", car_model)
+
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
+                logging.debug('созданы остальные таблицы')
+                conn.commit()
+                # вставляем данные из orient.txt в таблицу ORIENT
+                file = open("C:/Users/User/Проекты/Шерлок/orient.txt", 'r')
+                logging.debug('открыт файл orient.txt')
+
+                print(file)
+
+                #conn = sqlite3.connect("AUTODATA.db")
+                #cur = conn.cursor()
+                for f in file:
+                    cur.execute("INSERT INTO ORIENT VALUES (NULL,?,?,?,?)",
+                                (f[0], f[1], f[2], f[3],))
+                logging.debug('данные вставлены из файла orient.txt в таблицу ORIENT')
+                conn.commit()
+                conn.close()
+                file.close()
+
+                file = open("down_data.txt", 'w+')
+                print("дата загрузки изменена")
+                data_down = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                file.write(data_down)
+                file.close()
+
+                # по факту успешной загрузки показываем окно
+                self.newWindow = Toplevel(self.master)
+                self.newWindow.resizable(0, 0)
+
+                self.app = InfoWindow(self.newWindow)
+                self.newWindow.after(2000, self.newWindow.destroy)
+                self.down['state'] = 'disabled'
+                self.scheme['state'] = 'normal'
+                self.orient['state'] = 'normal'
+                # удаляем файл после переноса данных
+                #os.remove(path_del)
 
 
-        # загружаем данные
-        #loading_auto()
-        logging.debug('данные загружены')
-        conn = sqlite3.connect("AUTODATA.db")
-        logging.debug('соединение с бд')
-        # создаём курсор для виртуального управления базой данных
-        cur = conn.cursor()
-        # удаляем таблицу со старыми данными
-        cur.execute("DROP TABLE IF EXISTS AUTO")
-        # создаем новую
-        cur.execute(
-            "CREATE TABLE AUTO (id INTEGER PRIMARY KEY, num_auto TEXT, data TEXT, camera TEXT, make_car TEXT, model_car TEXT)")
-        logging.debug('создана таблица AUTO')
-        #разбиваем список адресов на отдельные адреса
+                # удаляем файлы загрузки
+                # загружаем данные с сайта в файлы загрузки
+                # очищаем AUTO,заполняем ее данными
+            else:
+                print('работа без загрузки')
+                logging.debug('работа без загрузки')
 
-        for p in path:
-            # открываем файл по каждому адресу
-            file = open(p, 'r')
-            # преобразуем файл в список
-            data_list = [row for row in csv.reader(file)]
-            # заполняем таблицу по индексам
-            for data in data_list:
-                cur.execute("INSERT INTO AUTO VALUES (NULL,?,?,?,?,?)", (data[1], data[6], data[14], data[17], data[18],))
-        logging.debug('вставлены данные с открытого файла')
-        #создаем таблицу исключения легковых тс
-        cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
-        cur.executemany("INSERT INTO CAR_MAKE VALUES(?);", car_make)
+                self.newWindow = Toplevel(self.master)
+                self.newWindow.resizable(0, 0)
+                # self.app = Register(self.newWindow)
+                self.app = InfoWindow2(self.newWindow)
+                self.newWindow.after(2000, self.newWindow.destroy)
+                self.down['state'] = 'disabled'
+                self.scheme['state'] = 'normal'
+                self.orient['state'] = 'normal'
 
-        cur.execute("CREATE TABLE IF NOT EXISTS CAR_MODEL (make_car TEXT, model_car TEXT)")
-        cur.executemany("INSERT INTO CAR_MODEL VALUES(?,?);", car_model)
-
-        cur.execute("CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
-        logging.debug('созданы остальные таблицы')
+                # вставляем данные из orient.txt в таблицу ORIENT
+                file = open("C:/Users/User/Проекты/Шерлок/orient.txt", 'r')
+                logging.debug('открыт файл orient.txt')
 
 
-        conn.commit()
-        conn.close()
-        file.close()
+                conn = sqlite3.connect("AUTODATA.db")
+                cur = conn.cursor()
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
+                logging.debug('создана таблица ORIENT')
+                for f in file:
+                    cur.execute("INSERT INTO ORIENT VALUES (NULL,?,?,?,?)",
+                                (f[0], f[1], f[2], f[3],))
+                    print(f)
+                logging.debug('данные вставлены из файла orient.txt в таблицу ORIENT')
+                conn.commit()
+                conn.close()
+                file.close()
 
-        # по факту успешной загрузки показываем окно
-        self.newWindow = Toplevel(self.master)
-        self.newWindow.resizable(0, 0)
-        #self.app = Register(self.newWindow)
-        self.app = InfoWindow(self.newWindow)
-        self.newWindow.after(2000, self.newWindow.destroy)
-        self.down['state'] = 'disabled'
-        self.scheme['state'] = 'normal'
-        self.orient['state'] = 'normal'
-        # удаляем файл после переноса данных
-        #os.remove(path_del)
+                # используем имеющиеся таблицы БД
+
+        else:
+            # загружаем данные с сайта в файлы загрузки
+            # создаем AUTO,заполняем ее данными
+            # создаем таблицы и заполняем их данными
+
+            #loading_auto()
+
+            logging.debug('данные загружены')
+            conn = sqlite3.connect("AUTODATA.db")
+            logging.debug('соединение с бд')
+            # создаём курсор для виртуального управления базой данных
+            cur = conn.cursor()
+            # удаляем таблицу со старыми данными
+            #cur.execute("DROP TABLE IF EXISTS AUTO")
+            # создаем новую
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS AUTO (id INTEGER PRIMARY KEY, num_auto TEXT, data TEXT, camera TEXT, make_car TEXT, model_car TEXT)")
+            logging.debug('создана таблица AUTO')
+            # разбиваем список адресов на отдельные адреса
+
+            for p in path:
+                # открываем файл по каждому адресу
+                file = open(p, 'r')
+                # преобразуем файл в список
+                data_list = [row for row in csv.reader(file)]
+                # заполняем таблицу по индексам
+                for data in data_list:
+                    cur.execute("INSERT INTO AUTO VALUES (NULL,?,?,?,?,?)",
+                                (data[1], data[6], data[14], data[17], data[18],))
+            logging.debug('вставлены данные с открытого файла')
+            # создаем таблицу исключения легковых тс
+            cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
+            cur.executemany("INSERT INTO CAR_MAKE VALUES(?);", car_make)
+
+            cur.execute("CREATE TABLE IF NOT EXISTS CAR_MODEL (make_car TEXT, model_car TEXT)")
+            cur.executemany("INSERT INTO CAR_MODEL VALUES(?,?);", car_model)
+
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
+            logging.debug('созданы остальные таблицы')
+
+            conn.commit()
+            conn.close()
+            file.close()
+
+            file = open("down_data.txt", 'w+')
+            print("файл создан")
+            data_down = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            file.write(data_down)
+            file.close()
+
+            # по факту успешной загрузки показываем окно
+            self.newWindow = Toplevel(self.master)
+            self.newWindow.resizable(0, 0)
+            # self.app = Register(self.newWindow)
+            self.app = InfoWindow(self.newWindow)
+            self.newWindow.after(2000, self.newWindow.destroy)
+            self.down['state'] = 'disabled'
+            self.scheme['state'] = 'normal'
+            self.orient['state'] = 'normal'
+            # удаляем файл после переноса данных
+            os.remove(path_del)
+
+
 
     def с_scheme(self):
         self.newWindow = Toplevel(self.master)
         self.newWindow.resizable(0, 0)
-        #self.app = Register(self.newWindow)
         self.app = Scheme(self.newWindow)
 
     def table(self):
@@ -128,13 +269,35 @@ class MainWindow:
         self.app = Table(self.newWindow)
 
     def c_out(self):
+
+        file = open("C:/Users/User/Проекты/Шерлок/orient.txt", 'w+')
+        logging.debug('создан или открыт файл orient.txt')
+
+        self.conn = sqlite3.connect("AUTODATA.db")
+        self.cur = self.conn.cursor()
+        self.cur.execute("select row_num , num_auto, data ,info from ORIENT ")
+        rows = self.cur.fetchall()
+
+
+        for row in rows:
+
+
+            row = str(row)
+            file.write(row)
+
+        logging.debug('данные записаны из таблицы ORIENT в файл orient.txt')
+        self.cur.execute("DROP TABLE IF EXISTS ORIENT")
+        logging.debug('таблица ORIENT удалена')
+
+        self.conn.close()
+
+        file.close()
         root.destroy()
 
 class InfoWindow:
     def __init__(self, master):
         self.master = master
         self.master.geometry("500x150+0+0")
-        #self.master.title("Online Quiz")
         self.master.config(bg="grey80")
         f1 = Frame(self.master, height=1080, width=1920, bg="grey80", relief="ridge", bd=10)
         f1.propagate(0)
@@ -146,7 +309,6 @@ class InfoWindow1:
     def __init__(self, master):
         self.master = master
         self.master.geometry("500x150+0+0")
-        # self.master.title("Online Quiz")
         self.master.config(bg="grey80")
 
         f11 = Frame(self.master, height=1080, width=1920, bg="grey80", relief="ridge", bd=10)
@@ -155,15 +317,23 @@ class InfoWindow1:
         self.mainTitle = Label(f11, text="Пароль неверный!", fg="grey15" ,bg="grey80", font=("Helvetica", 20, "normal roman")).place(
             x=110, y=45)
 
+class InfoWindow2:
+
+    def __init__(self, master):
+        self.master = master
+        self.master.geometry("500x150+0+0")
+        self.master.config(bg="grey80")
+        f12 = Frame(self.master, height=1080, width=1920, bg="grey80", relief="ridge", bd=10)
+        f12.propagate(0)
+        f12.pack()
+        self.mainTitle = Label(f12, text="Работа без загрузки", fg="grey15" ,bg="grey80", font=("Helvetica", 20, "normal roman")).place(
+            x=50, y=45)
+
 class Scheme:
     def __init__(self, master):
-        #global mReg
-        #mReg = master
         self.master = master
         self.master.geometry("1350x750+0+0")
-        #self.master.title("Online Quiz - Registration")
         self.master.config(bg="azure")
-        #global f1
         f2 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
         f2.propagate(0)
         f2.pack()
@@ -222,13 +392,11 @@ class Scheme:
     def c_scheme1(self):
         self.newWindow = Toplevel(self.master)
         self.newWindow.resizable(0, 0)
-        # self.app = Register(self.newWindow)
         self.app = Scheme1(self.newWindow)
 
     def c_scheme2(self):
         self.newWindow = Toplevel(self.master)
         self.newWindow.resizable(0, 0)
-        # self.app = Register(self.newWindow)
         self.app = Scheme2(self.newWindow)
     def c_scheme3(self):
         pass
@@ -245,15 +413,13 @@ class Table:
     def __init__(self, master):
         self.master = master
         self.master.geometry("1350x750+0+0")
-        # self.master.title("Online Quiz - Registration")
         self.master.config(bg="grey15")
-        # global f1
         f4 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
         f4.propagate(0)
         f4.pack()
 
         self.mainTitle = Label(f4, text="Ориентировки", bg="grey15", fg="grey79",
-                               font=("Helvetica", 16, "normal roman")).place(x=550, y=30)
+                               font=("Helvetica", 16, "normal roman")).place(x=570, y=30)
         # дополнение на 20.10.24
         self.number1 = Label(f4, text="Номер АТС", fg="grey79", bg="grey15",
                              font=("Helvetica", 12, "normal roman"))
@@ -266,36 +432,35 @@ class Table:
         self.info2 = Label(f4, text="информация: ", fg="grey79", bg="grey15",
                            font=("Helvetica", 12, "normal roman"))
         self.e_number = Entry(f4, width=10, font=("Helvetica", 12, "normal roman"))
-        self.e_info = Entry(f4, width=98, font=("Helvetica", 12, "normal roman"))
+        self.e_info = Entry(f4, width=102, font=("Helvetica", 12, "normal roman"))
 
-        self.number1.place(x=50, y=450)
-        self.number2.place(x=50, y=470)
-        self.number3.place(x=50, y=490)
+        self.number1.place(x=85, y=460)
+        self.number2.place(x=85, y=480)
+        self.number3.place(x=85, y=500)
 
 
-        self.info1.place(x=50, y=540)
-        self.info2.place(x=50, y=560)
+        self.info1.place(x=85, y=540)
+        self.info2.place(x=85, y=560)
 
-        self.e_number.place(x=265, y=490)
-        self.e_info.place(x=265, y=560)
+        self.e_number.place(x=305, y=500)
+        self.e_info.place(x=305, y=560)
 
 
 
         # создание элементов для ввода слов и значений
-        self.tree = ttk.Treeview(f4, show="headings", height=12, columns=('#1', '#2', '#3', '#4'))
+        self.tree = ttk.Treeview(f4, show="headings", height=13, columns=('#1', '#2', '#3', '#4'))
         self.tree.delete(*self.tree.get_children())
 
-        # self.tree.grid(row=4, column=0, columnspan=2)
         self.tree.heading('#1', text='№', anchor='w')
         self.tree.heading('#2', text='Номер АТС', anchor='w')
         self.tree.heading('#3', text='Дата внесения', anchor='w')
         self.tree.heading('#4', text='Дополнительная информация', anchor='w')
-        self.tree.place(x=155, y=82)
+        self.tree.place(x=85, y=82)
 
         self.tree.column("#1", stretch=NO, width=50)
         self.tree.column("#2", stretch=NO, width=100)
         self.tree.column("#3", stretch=NO, width=200)
-        self.tree.column("#4", stretch=NO, width=650)
+        self.tree.column("#4", stretch=NO, width=776)
 
 
 
@@ -303,7 +468,6 @@ class Table:
         # для работы fieldbackground добавим
         style.theme_use("clam")
 
-        # style.configure("Treeview.Heading", font=(None, 15))
         style.configure("Treeview", font=("Helvetica", 12), fieldbackground="grey15", background="grey15",
                         foreground="grey79", rowheight=25)
         # style.configure("Treeview.Cell", foreground="grey79", borderwidth=1, relief="sunken")
@@ -338,15 +502,15 @@ class Table:
 
         self.save = Button(f4, text="Сохранить", width=15, height=2, fg="grey91", bg="grey37",
                            font=("Helvetica", 12, "normal roman"), command=self.c_save)
-        self.save.place(x=417, y=620)
-        self.update.place(x=617, y=620)
-        self.delete.place(x=817, y=620)
-        self.cancel.place(x=1017, y=620)
+        self.save.place(x=482, y=620)
+        self.update.place(x=682, y=620)
+        self.delete.place(x=882, y=620)
+        self.cancel.place(x=1082, y=620)
 
         treeYScroll = ttk.Scrollbar(f4, orient=VERTICAL)
         treeYScroll.configure(command=self.tree.yview)
         self.tree.configure(yscrollcommand=treeYScroll.set)
-        treeYScroll.place(x=1147, y=82, height=533)
+        treeYScroll.place(x=1215, y=82, height=358)
 
         self.conn = sqlite3.connect("AUTODATA.db")
         self.cur = self.conn.cursor()
@@ -375,18 +539,11 @@ class Table:
 
                 self.e_number.insert(0, self.rows[1])
                 self.e_info.insert(0, self.rows[2])
-
-               # self.cur.execute("DELETE FROM ORIENT WHERE row_num=?", (num_selected_item,))
                 self.conn.commit()
 
                 self.cur.close()
                 self.conn.close()
 
-                #self.newWindow = Toplevel(self.master)
-                #self.newWindow.resizable(0, 0)
-                #self.app = Orient_Update(self.newWindow, self.rows)
-
-        #self.master.destroy()
 
     def c_delete(self):
         #создаем нумерацию имеющихся строк
@@ -478,13 +635,9 @@ class Table:
 class SchemeDescription:
 
     def __init__(self, master):
-        #global mReg
-        #mReg = master
         self.master = master
         self.master.geometry("1350x750+0+0")
-        #self.master.title("Online Quiz - Registration")
         self.master.config(bg="azure")
-        #global f1
         f5 = Frame(self.master, height=1080, width=1920, bg="grey15", relief="ridge", bd=20)
         f5.propagate(0)
         f5.pack()
@@ -649,263 +802,6 @@ class Scheme2:
             self.tree.insert(parent='', index='end', values=(row[0], row[1], row[2], row[3], row[4]))
 
         self.conn.close()
-        # self.master.update()
-
-
-
-class Login:
-
-    def __init__(self, master):
-        global mLogin
-        mLogin = master
-        self.master = master
-        self.master.geometry("1350x750+0+0")
-        self.master.config(bg="azure")
-
-        global f22
-        f22 = Frame(self.master, height=1080, width=1920, bg="azure", relief="ridge", bd=20)
-        f22.propagate(0)
-        f22.pack()
-
-        self.l1 = Label(f2, text="Enter Username: ", bg="azure", font=("Times New Roman", 20))
-        self.e1 = Entry(f2, width=30)
-        self.l2 = Label(f2, text="Enter Password: ", bg="azure", font=("Times New Roman", 20))
-        self.e2 = Entry(f2, width=30, show="*")
-        self.b1 = Button(f2, text="Login", width=15, height=3, fg="royalblue4", bg="lavender",
-                         font=("Helvetica", 10, "bold italic"), command=self.clicked)
-        self.b2 = Button(f2, text="Cancel", width=15, height=3, fg="royalblue4", bg="lavender",
-                         font=("Helvetica", 10, "bold italic"), command=self.cancelLogin)
-
-        self.var = IntVar()
-        self.checkB = Checkbutton(f2, text='Show Password', bg="azure", fg="royalblue4",
-                                  font=("Helvetica", 10, "bold italic"), variable=self.var, onvalue=1,
-                                  offvalue=0, command=self.Showpasswd)
-
-        self.l1.place(x=420, y=100)
-        self.e1.place(x=620, y=110)
-        self.l2.place(x=420, y=150)
-        self.e2.place(x=620, y=160)
-        self.b1.place(x=470, y=250)
-        self.b2.place(x=620, y=250)
-        self.checkB.place(x=615, y=190)
-
-    def Showpasswd(self):
-        if (self.var.get()):
-            self.e2.config(show="")
-        else:
-            self.e2.config(show="*")
-
-    def cancelLogin(self):
-        mLogin.destroy()
-
-    def clicked(self):
-        pass
-
-    def goinaccount(self, u):
-        self.accWindow = Toplevel(mLogin)
-        self.accWindow.resizable(0, 0)
-        self.acWin = Account(self.accWindow, u)
-
-
-class Account:
-
-    def __init__(self, master, u):
-        global mAcc
-        self.u = u
-        self.master = master
-        mAcc = master
-        self.master.geometry("1350x750+0+0")
-        self.master.title("Welcome")
-        self.master.config(bg="#009FBF")
-        f3 = Frame(mAcc, height=1080, width=1920, bg="azure", relief="ridge", bd=20)
-        f3.propagate(0)
-        f3.pack()
-        conn = MySQLdb.connect(host='localhost', database='world', user='root', password='root')
-        cursor = conn.cursor()
-        q = "select score from reg where uname='%s'"
-        arg = (u)
-        cursor.execute(q % arg)
-        self.prevScore = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        self.greet = Label(f3, text="Hey " + u + ", Welcome Back!", bg="azure",
-                           font=("Helvetica", 30, "bold italic")).place(x=400, y=200)
-        self.lastScore = Label(f3, text="Last Quiz Score = " + str(self.prevScore[0]), bg="azure",
-                               font=("Helvetica", 30, "bold italic")).place(x=400, y=300)
-        self.takeQuiz = Button(f3, text="Take Quiz", width=20, height=5, fg="royalblue4", bg="lavender",
-                               font=("Helvetica", 10, "bold italic"), command=self.goinside)
-        self.takeQuiz.place(x=500, y=400)
-        self.logout = Button(f3, text="Logout", width=20, height=5, fg="royalblue4", bg="lavender",
-                             font=("Helvetica", 10, "bold italic"), command=self.logout)
-        self.logout.place(x=750, y=400)
-
-    def goinside(self):
-        self.quizWindow = Toplevel(self.master)
-        self.quizWindow.resizable(0, 0)
-        self.qw = Quiz(self.quizWindow, self.u)
-
-    def logout(self):
-        mAcc.destroy()
-
-
-class Quiz:
-    def __init__(self, master, u):
-        self.user = u
-        global mQuiz
-        mQuiz = master
-        self.master = master
-        self.master.geometry("1350x750+0+0")
-        self.master.title("Online Quiz - Registration")
-        self.master.config(bg="azure")
-        global f1
-        f = Frame(self.master, height=1080, width=1920, bg="azure", relief="ridge", bd=20)
-        conn = MySQLdb.connect(host='localhost', database='world', user='root', password='root')
-        cursor = conn.cursor()
-
-        global l1, answerstemp
-        global questions
-        questions = []
-        global options
-        options = []
-        global answers
-        answers = []
-        answerstemp = []
-        s1 = set()
-
-        while len(s1) < 10:
-            strQ = ""
-            strA = ""
-            id = random.randint(1, 30)
-            s1.add(id)
-
-        while len(s1) > 0:
-            s = "select qstn from questions where QID=%d"
-            id = s1.pop()
-            arg = (id)
-            cursor.execute(s % arg)
-            strQ = strQ.join(list(cursor.fetchone()))
-            questions.append(strQ)
-
-            s = "select opA,opB,opC,opD from questions where QID=%d"
-            arg = (id)
-            cursor.execute(s % arg)
-            options.append(list(cursor.fetchone()))
-
-            s = "select ans from questions where QID=%d"
-            arg = (id)
-            cursor.execute(s % arg)
-            l = list(cursor.fetchone())
-            answerstemp.append(l)
-
-        mydict = {}
-        for i in range(10):
-            mydict[questions[i]] = options[i]
-        for i in range(len(answerstemp)):
-            answers.append(answerstemp[i][0])
-
-        print("DEBUG: Answers= ", answers)
-
-        cursor.close()
-        conn.close()
-        l1 = {}
-        for i in range(10):
-            l1[i] = 0
-
-        f.propagate(0)
-        f.pack()
-        self.qno = 0
-        self.score1 = 0
-        self.ques = self.create_q(f, self.qno)
-        self.opts = self.create_options(f)
-        self.display_q(self.qno)
-        self.Back = Button(f, text="<- Back", width=15, height=3, fg="royalblue4", bg="snow2",
-                           font=("Helvetica", 10, "bold italic"), command=self.back).place(x=100, y=325)
-        self.Next = Button(f, text="Next ->", width=15, height=3, fg="royalblue4", bg="snow2",
-                           font=("Helvetica", 10, "bold italic"), command=self.next).place(x=250, y=325)
-        self.submit = Button(f, text="Submit", width=34, height=2, fg="ghost white", bg="DeepSkyBlue2",
-                             font=("Helvetica", 10, "bold italic"), command=self.Submit).place(x=100, y=400)
-
-
-
-    def create_q(self, master, qno):
-        qLabel = Label(master, text=questions[qno], bg='azure', font=("Times New Roman", 20))
-        qLabel.place(x=30, y=70)
-        return qLabel
-
-    def create_options(self, master):
-        b_val = 0
-        b = []
-        ht = 85
-        self.opt_selected = IntVar()
-        while b_val < 4:
-            btn = Radiobutton(master, text="", variable=self.opt_selected, value=b_val + 1, bg='azure',
-                              font=("Times New Roman", 20))
-            b.append(btn)
-            ht = ht + 40
-            btn.place(x=30, y=ht)
-            b_val = b_val + 1
-        return b
-
-    def display_q(self, qno):
-        b_val = 0
-        self.ques['text'] = str(qno + 1) + ". " + questions[qno]
-        for op in options[qno]:
-            self.opts[b_val]['text'] = op
-            b_val = b_val + 1
-
-    def next(self):
-        self.qno += 1
-
-        if self.qno >= len(questions):
-            self.qno -= 1
-            messagebox.showwarning("Warning", "You are at the end.Press Submit to proceed")
-        else:
-            l1[self.qno - 1] = self.opt_selected.get()
-            self.opt_selected.set(l1[(self.qno)])
-            self.display_q(self.qno)
-
-    def back(self):
-        l1[self.qno] = self.opt_selected.get()
-        self.qno -= 1
-        if self.qno < 0:
-            self.qno += 1
-            messagebox.showerror("Error", "You are already in the start!!!")
-        else:
-            self.display_q(self.qno)
-            c = l1[self.qno]
-            self.opt_selected.set(c)
-
-    def Submit(self):
-        l1[self.qno] = self.opt_selected.get()
-        x = 0
-        y = True
-        for i in range(10):
-            if (l1[i] == 0):
-                x += 1
-        if (x > 0 and x != 1):
-            y = messagebox.askyesno("Warning", "You have not attempted " + str(
-                x) + " questions, Are you sure you want to submit?, You won't be able to make changes again")
-        elif (x == 1):
-            y = messagebox.askyesno("Warning", "You have not attempted " + str(
-                x) + " question, Are you sure you want to submit?, You won't be able to make changes again")
-        if (y == True or x == 0):
-            s = 0
-            for i in range(10):
-                if (l1[i] == answerstemp[i][0]):
-                    s = s + 1
-            print("DEBUG: Score: ", s)
-
-        conn = MySQLdb.connect(host='localhost', database='world', user='root', password='root')
-        cursor = conn.cursor()
-        q = "update reg set score='%d' where uname= '%s'"
-        arg = (s, self.user)
-        cursor.execute(q % arg)
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        messagebox.showinfo("Score", "Your Score is: " + str(s) + "/10")
-        mQuiz.destroy()
 
 
 root = Tk()

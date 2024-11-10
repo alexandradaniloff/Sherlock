@@ -122,14 +122,14 @@ class MainWindow:
                 logging.debug('созданы остальные таблицы')
                 conn.commit()
                 # вставляем данные из orient.txt в таблицу ORIENT
-                file = open("C:/Users/User/Проекты/Шерлок/orient.txt", 'r')
+                file = open(path_orient, 'r')
                 logging.debug('открыт файл orient.txt')
 
-                print(file)
+                # заполняем таблицу по индексам
+                data_orient = [row for row in csv.reader(file)]
+                # заполняем таблицу по индексам
 
-                #conn = sqlite3.connect("AUTODATA.db")
-                #cur = conn.cursor()
-                for f in file:
+                for f in data_orient:
                     cur.execute("INSERT INTO ORIENT VALUES (NULL,?,?,?,?)",
                                 (f[0], f[1], f[2], f[3],))
                 logging.debug('данные вставлены из файла orient.txt в таблицу ORIENT')
@@ -173,19 +173,22 @@ class MainWindow:
                 self.orient['state'] = 'normal'
 
                 # вставляем данные из orient.txt в таблицу ORIENT
-                file = open("C:/Users/User/Проекты/Шерлок/orient.txt", 'r')
-                logging.debug('открыт файл orient.txt')
-
 
                 conn = sqlite3.connect("AUTODATA.db")
                 cur = conn.cursor()
                 cur.execute(
                     "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
                 logging.debug('создана таблица ORIENT')
-                for f in file:
+
+                file = open(path_orient, 'r')
+                logging.debug('открыт файл orient.txt')
+
+                data_orient = [row for row in csv.reader(file)]
+                # заполняем таблицу по индексам
+
+                for f in data_orient:
                     cur.execute("INSERT INTO ORIENT VALUES (NULL,?,?,?,?)",
                                 (f[0], f[1], f[2], f[3],))
-                    print(f)
                 logging.debug('данные вставлены из файла orient.txt в таблицу ORIENT')
                 conn.commit()
                 conn.close()
@@ -194,6 +197,7 @@ class MainWindow:
                 # используем имеющиеся таблицы БД
 
         else:
+            # если загрузка производится впервые(файла "down_data.txt" не существует)
             # загружаем данные с сайта в файлы загрузки
             # создаем AUTO,заполняем ее данными
             # создаем таблицы и заполняем их данными
@@ -213,9 +217,10 @@ class MainWindow:
             logging.debug('создана таблица AUTO')
             # разбиваем список адресов на отдельные адреса
 
+            file = open(p, 'r')
             for p in path:
                 # открываем файл по каждому адресу
-                file = open(p, 'r')
+                # file = open(p, 'r')
                 # преобразуем файл в список
                 data_list = [row for row in csv.reader(file)]
                 # заполняем таблицу по индексам
@@ -269,8 +274,9 @@ class MainWindow:
         self.app = Table(self.newWindow)
 
     def c_out(self):
+        # создаем файл orient.txt для хранения ориентировок и переносим в него данные из таблицы ORIENT
 
-        file = open("C:/Users/User/Проекты/Шерлок/orient.txt", 'w+')
+        file = open(path_orient, 'w+')
         logging.debug('создан или открыт файл orient.txt')
 
         self.conn = sqlite3.connect("AUTODATA.db")
@@ -278,12 +284,8 @@ class MainWindow:
         self.cur.execute("select row_num , num_auto, data ,info from ORIENT ")
         rows = self.cur.fetchall()
 
-
-        for row in rows:
-
-
-            row = str(row)
-            file.write(row)
+        file_writer = csv.writer(file, delimiter=",", lineterminator="\n")
+        file_writer.writerows(rows)
 
         logging.debug('данные записаны из таблицы ORIENT в файл orient.txt')
         self.cur.execute("DROP TABLE IF EXISTS ORIENT")
@@ -327,7 +329,7 @@ class InfoWindow2:
         f12.propagate(0)
         f12.pack()
         self.mainTitle = Label(f12, text="Работа без загрузки", fg="grey15" ,bg="grey80", font=("Helvetica", 20, "normal roman")).place(
-            x=50, y=45)
+            x=100, y=45)
 
 class Scheme:
     def __init__(self, master):

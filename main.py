@@ -19,7 +19,7 @@ from config import *
 from loading import *
 import csv
 import logging
-import os
+import os.path
 
 logging.basicConfig(
     level=logging.DEBUG, filename = "mylog.txt",
@@ -63,6 +63,7 @@ class MainWindow:
         self.out = Button(f, text="Выйти", width=15, height=2, fg="grey91", bg="grey37",
                                   font=("Helvetica", 12, "normal roman"), command=self.c_out)
         self.out.place(relx=.5, y=510, anchor="center")
+        self.out['state'] = 'disabled'
 
 
 
@@ -70,12 +71,17 @@ class MainWindow:
         # Если скачивание было недавно, то данные с сайта не загружаем.
         # Используем ранее полученную информацию.
 
-        if path_data.exists():
-            print("файл существует")
-            file = open("down_data.txt", 'r')
+        if os.path.exists(path_data):
+            print(os.path.exists(path_data))
+            logging.debug('дата загрузки была записана ранее')
+            file = open(path_data, 'r')
             data_list = file.read()
+            print("Дата")
+            print(data_list)
             file.close()
             # получаем дату-время последней загрузки в нужном формате
+            #datetime.datetime.now().strftime
+            #date_down = datetime.datetime.strptime(data_list, '%Y-%m-%d %H:%M:%S')
             date_down = datetime.datetime.strptime(data_list, '%Y-%m-%d %H:%M:%S')
             # получаем текущую дату-время в нужном формате
             data_now = datetime.datetime.now()
@@ -84,7 +90,7 @@ class MainWindow:
             print(int(diff))
             if diff >= 1:
                 #loading_auto()
-
+                logging.debug('загрузка была давно')
                 logging.debug('данные загружены')
                 conn = sqlite3.connect("AUTODATA.db")
                 logging.debug('соединение с бд')
@@ -95,7 +101,7 @@ class MainWindow:
                 # создаем новую
                 cur.execute(
                     "CREATE TABLE IF NOT EXISTS AUTO (id INTEGER PRIMARY KEY, num_auto TEXT, data TEXT, camera TEXT, make_car TEXT, model_car TEXT)")
-                logging.debug('создана таблица CREATE AUTO')
+                logging.debug('удалена и создана таблица AUTO')
                 # разбиваем список адресов на отдельные адреса
 
                 for p in path:
@@ -108,7 +114,7 @@ class MainWindow:
                         cur.execute("INSERT INTO AUTO VALUES (NULL,?,?,?,?,?)",
                                     (data[1], data[6], data[14], data[17], data[18],))
                     file.close()
-                logging.debug('вставлены данные с открытого файла')
+                logging.debug('вставлены данные в AUTO со скачанного файла')
 
                 # создаем таблицу исключения легковых тс
                 cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
@@ -137,10 +143,10 @@ class MainWindow:
                 conn.close()
                 file.close()
 
-                file = open("down_data.txt", 'w+')
-                print("дата загрузки изменена")
+                file = open(path_data, 'w+')
                 data_down = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 file.write(data_down)
+                logging.debug('дата загрузки обновлена')
                 file.close()
 
                 # по факту успешной загрузки показываем окно
@@ -152,6 +158,7 @@ class MainWindow:
                 self.down['state'] = 'disabled'
                 self.scheme['state'] = 'normal'
                 self.orient['state'] = 'normal'
+                self.out['state'] = 'normal'
                 # удаляем файл после переноса данных
                 #os.remove(path_del)
 
@@ -160,7 +167,7 @@ class MainWindow:
                 # загружаем данные с сайта в файлы загрузки
                 # очищаем AUTO,заполняем ее данными
             else:
-                print('работа без загрузки')
+                logging.debug('загрузка была недавно')
                 logging.debug('работа без загрузки')
 
                 self.newWindow = Toplevel(self.master)
@@ -171,6 +178,7 @@ class MainWindow:
                 self.down['state'] = 'disabled'
                 self.scheme['state'] = 'normal'
                 self.orient['state'] = 'normal'
+                self.out['state'] = 'normal'
 
                 # вставляем данные из orient.txt в таблицу ORIENT
 
@@ -203,7 +211,7 @@ class MainWindow:
             # создаем таблицы и заполняем их данными
 
             #loading_auto()
-
+            logging.debug('данные загружаются впервые')
             logging.debug('данные загружены')
             conn = sqlite3.connect("AUTODATA.db")
             logging.debug('соединение с бд')
@@ -217,17 +225,18 @@ class MainWindow:
             logging.debug('создана таблица AUTO')
             # разбиваем список адресов на отдельные адреса
 
-            file = open(p, 'r')
+
             for p in path:
                 # открываем файл по каждому адресу
-                # file = open(p, 'r')
+                file = open(p, 'r')
                 # преобразуем файл в список
                 data_list = [row for row in csv.reader(file)]
                 # заполняем таблицу по индексам
                 for data in data_list:
                     cur.execute("INSERT INTO AUTO VALUES (NULL,?,?,?,?,?)",
                                 (data[1], data[6], data[14], data[17], data[18],))
-            logging.debug('вставлены данные с открытого файла')
+                file.close()
+            logging.debug('вставлены данные в AUTO с загруженного файла')
             # создаем таблицу исключения легковых тс
             cur.execute("CREATE TABLE IF NOT EXISTS CAR_MAKE (make_car TEXT)")
             cur.executemany("INSERT INTO CAR_MAKE VALUES(?);", car_make)
@@ -241,12 +250,34 @@ class MainWindow:
 
             conn.commit()
             conn.close()
-            file.close()
+
 
             file = open("down_data.txt", 'w+')
-            print("файл создан")
+            logging.debug('дата загрузки записана')
             data_down = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             file.write(data_down)
+            file.close()
+
+            # вставляем данные из orient.txt в таблицу ORIENT
+
+            conn = sqlite3.connect("AUTODATA.db")
+            cur = conn.cursor()
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS ORIENT (id INTEGER PRIMARY KEY, row_num INTEGER, num_auto TEXT, data TEXT, info TEXT)")
+            logging.debug('создана таблица ORIENT')
+
+            file = open(path_orient, 'w+')
+            logging.debug('открыт файл orient.txt')
+
+            data_orient = [row for row in csv.reader(file)]
+            # заполняем таблицу по индексам
+
+            for f in data_orient:
+                cur.execute("INSERT INTO ORIENT VALUES (NULL,?,?,?,?)",
+                            (f[0], f[1], f[2], f[3],))
+            logging.debug('данные вставлены из файла orient.txt в таблицу ORIENT')
+            conn.commit()
+            conn.close()
             file.close()
 
             # по факту успешной загрузки показываем окно
@@ -258,8 +289,9 @@ class MainWindow:
             self.down['state'] = 'disabled'
             self.scheme['state'] = 'normal'
             self.orient['state'] = 'normal'
+            self.out['state'] = 'normal'
             # удаляем файл после переноса данных
-            os.remove(path_del)
+            #os.remove(path_del)
 
 
 
@@ -276,7 +308,7 @@ class MainWindow:
     def c_out(self):
         # создаем файл orient.txt для хранения ориентировок и переносим в него данные из таблицы ORIENT
 
-        file = open(path_orient, 'w+')
+        file = open(path_orient, 'w')
         logging.debug('создан или открыт файл orient.txt')
 
         self.conn = sqlite3.connect("AUTODATA.db")
